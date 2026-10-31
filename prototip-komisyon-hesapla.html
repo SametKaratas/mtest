@@ -272,6 +272,37 @@ button { font: inherit; }
 .f-m .calc { grid-template-columns: minmax(0, 1fr) 120px; gap: 0 12px; }
 .res { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; min-height: 54px; text-align: right; }
 .rv { font: 300 18px/26px var(--sp-font-body); color: var(--sp-text-heading); font-variant-numeric: tabular-nums; }
+/* ---- Renkli sürüm: Shopier paletinden ---- */
+.tcard { border-left: 4px solid var(--sp-primary); }
+.tcard > .card-h { background: linear-gradient(rgba(255,255,255,.45), rgba(255,255,255,.45)), var(--sp-primary-lighter); padding-bottom: 14px; min-height: 0; }
+.tcard > .card-h .card-t { color: var(--sp-primary-dark); }
+.tcard > .card-b { padding-top: 20px !important; }
+.btn-primary { background: var(--sp-primary); border-color: var(--sp-primary); color: #fff; font-weight: 700; }
+.f-d .btn-primary:hover { background: var(--sp-primary-light); border-color: var(--sp-primary-light); color: #fff; }
+.btn-primary:active { background: var(--sp-primary-dark); border-color: var(--sp-primary-dark); }
+.modal { border-top: 4px solid var(--sp-primary); }
+.modal-h.tinted { background: linear-gradient(rgba(255,255,255,.45), rgba(255,255,255,.45)), var(--sp-primary-lighter); padding-bottom: 16px; margin-bottom: 18px; }
+.modal-h.tinted h4 { color: var(--sp-primary-dark); }
+.res.t-yel, .res.t-blue { border-radius: 3px; padding: 6px 12px; min-height: 54px; box-sizing: border-box; }
+.res.t-yel { background: var(--sp-warning-lighter); border-right: 3px solid var(--sp-warning); }
+.res.t-yel .small { color: var(--sp-warning-darker); }
+.res.t-yel .rv { color: var(--sp-text-heading); }
+.res.t-blue { background: linear-gradient(rgba(255,255,255,.5), rgba(255,255,255,.5)), var(--sp-primary-lighter); border-right: 3px solid var(--sp-primary); }
+.res.t-blue .small { color: var(--sp-primary-dark); }
+.res.t-blue .rv { color: var(--sp-primary-dark); }
+.netbox { margin-top: 6px; border-left: 4px solid var(--sp-complete); background: var(--sp-complete-lighter); border-radius: 3px; padding: 12px 14px; }
+.net-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; font-weight: 700; color: var(--sp-text-heading); }
+.net-v { font: 300 24px/32px var(--sp-font-body); color: var(--sp-complete-darker); font-variant-numeric: tabular-nums; }
+.net-v.neg { color: var(--sp-danger-dark); }
+.net-rows { display: grid; gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0, 139, 112, .2); }
+.net-rows .subrow { font-size: 12px; color: var(--sp-text-heading); }
+.net-rows .ded { color: var(--sp-danger-dark); }
+.net-hint { margin: 8px 0 0; font-size: 12px; color: var(--sp-complete-darker); }
+.res .small { font-size: 11.6px; line-height: 17px; }
+.rv { white-space: nowrap; }
+.f-m .calc { grid-template-columns: minmax(0, 1fr) 132px; }
+.f-m .rv { font-size: 16px; line-height: 24px; }
+.f-m .res.t-yel, .f-m .res.t-blue { padding: 6px 10px; }
 
 </style>
 </head>
@@ -389,11 +420,13 @@ function hideTip() { const t = document.getElementById('tip'); if (t) t.remove()
 /* ===== Prototip 3 · Ürün listeleme/güncellemede "Komisyon hesapla" ===== */
 const LEVELS = [5.99, 5.49, 4.99, 4.49, 3.99, 3.49, 2.99];   // Ücretler sayfası TL işlem oranları (seviye 0–6)
 const SPECIAL = 2.49;                                         // örnek özel oran
-const FIXED = 0.49, VAT = 0.20, CARGO_UNIT = 106, MIN_CARGO = 150;
+const FIXED = 0.49, VAT = 0.20, MIN_CARGO = 150, STOPAJ = 0.01;          // stopaj %1 örnek
+const CARRIERS = [['yurtici', 'Yurtiçi', 180], ['ptt', 'PTT', 80], ['dhl', 'DHL', 106]];   // desi başı TL
+const carrier = k => CARRIERS.find(c => c[0] === k);
 const S = {
   device: 'd', menuOpen: false, page: 'list', role: 'owner', level: '2', exempt: false,
   form: { name: '', desc: '', price: '', currency: 'TL', stock: '' },
-  modal: false, m: { price: '', cargo: false, desi: '' }, log: ''
+  modal: false, m: { price: '', cargo: false, carrier: '', desi: '' }, log: ''
 };
 const FORMS = {
   list: { name: '', desc: '', price: '', currency: 'TL', stock: '' },
@@ -413,12 +446,19 @@ const commission = p => round2((p * rate() / 100 + FIXED) * (1 + VAT));
 const desiValid = s => /^\d+$/.test(String(s).trim()) && +s >= 1;
 const cargoEnabled = p => S.exempt || (p !== null && !isNaN(p) && p >= MIN_CARGO);
 const buttonVisible = () => S.form.currency === 'TL' && S.role !== 'subnofin';
+const cargoFee = () => { const c = carrier(S.m.carrier); return S.m.cargo && c && desiValid(S.m.desi) ? round2(+S.m.desi * c[2]) : null; };
+const stopaj = p => round2(p * STOPAJ);
+function netOf(p) {
+  if (p === null || isNaN(p)) return null;
+  if (S.m.cargo && cargoFee() === null) return null;
+  return round2(p - commission(p) - (cargoFee() || 0) - stopaj(p));
+}
 
 /* ---- Senaryo paneli ---- */
 function renderPanelStatic() {
   document.getElementById('sc').innerHTML = `
     <h1>Senaryo paneli</h1>
-    <p class="note">Bu panel ürünün parçası değil; tüm veriler örnektir. Oranlar Ücretler sayfasındaki tablodan, 0,49 TL sabit ücret ve %20 KDV yerel kod kopyasından alındı; finans ekibince teyit edilecek. Özel oran (%2,49) örnektir.</p>
+    <p class="note">Bu panel ürünün parçası değil; tüm veriler örnektir. Oranlar Ücretler sayfasındaki tablodan, 0,49 TL sabit ücret ve %20 KDV yerel kod kopyasından alındı; finans ekibince teyit edilecek. Özel oran (%2,49) örnektir. Stopaj %1 örnektir ve satış fiyatı üzerinden hesaplanır; finans ekibi teyit etmeli.</p>
     <h2>Görünüm</h2>${seg('pv-dev', [['d', 'Masaüstü'], ['m', 'Mobil']], S.device)}
     <h2>Sayfa</h2>${seg('pv-page', [['list', 'Ürün listeleme'], ['update', 'Ürün güncelleme']], S.page)}
     <h2>Kullanıcı</h2>${seg('pv-role', [['owner', 'Ana hesap'], ['subfin', 'Alt kullanıcı · finansal izinli'], ['subnofin', 'Alt kullanıcı · finansal izinsiz']], S.role)}
@@ -427,6 +467,7 @@ function renderPanelStatic() {
     <label class="chk"><input type="checkbox" id="pv-exempt"> 150 TL kuralından muaf satıcı</label>
     <h2>Hızlı giriş · modaldaki alanlara yazar</h2>
     <div class="row"><span class="lbl">Satış fiyatı</span><div class="chips" id="pv-price">${['', '149,99', '150', '250', '1.000'].map(v => `<button type="button" data-v="${v}">${v || 'boş'}</button>`).join('')}</div></div>
+    <div class="row"><span class="lbl">Kargo firması</span><div class="chips" id="pv-carrier">${CARRIERS.map(c => `<button type="button" data-v="${c[0]}">${c[1]} · ${c[2]} TL</button>`).join('')}</div></div>
     <div class="row"><span class="lbl">Desi</span><div class="chips" id="pv-desi">${['1', '3', '10', '0', '2,5', 'abc'].map(v => `<button type="button" data-v="${v}">${v}</button>`).join('')}</div></div>
     <div id="pv-dyn"></div>`;
   bindSeg('pv-dev', v => { S.device = v; S.menuOpen = false; mountFrame(v); renderAll(); });
@@ -437,10 +478,10 @@ function renderPanelStatic() {
   const quick = (id, key) => document.getElementById(id).addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     if (!S.modal) { S.log = 'Önce "Komisyon hesapla" ile modalı açın.'; renderPanel(); return; }
-    if (key === 'desi' && !S.m.cargo) { S.log = 'Desi alanı için önce "Anlaşmalı kargo kullanacağım" işaretlenmeli.'; renderPanel(); return; }
+    if ((key === 'desi' || key === 'carrier') && !S.m.cargo) { S.log = (key === 'desi' ? 'Desi' : 'Kargo firması') + ' alanı için önce "Anlaşmalı kargo kullanacağım" işaretlenmeli.'; renderPanel(); return; }
     S.m[key] = b.dataset.v; onModalChange(); refreshModal(true); renderPanel();
   });
-  quick('pv-price', 'price'); quick('pv-desi', 'desi');
+  quick('pv-price', 'price'); quick('pv-carrier', 'carrier'); quick('pv-desi', 'desi');
 }
 function renderPanel() {
   [['pv-dev', S.device], ['pv-page', S.page], ['pv-role', S.role]].forEach(([id, v]) => document.querySelectorAll('#' + id + ' button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v)));
@@ -454,10 +495,13 @@ function renderPanel() {
     { t: 'Modal her açılışta boş, forma değer yazmaz', ok: true, v: 'Formdaki fiyat: ' + (S.form.price || 'boş') },
     { t: 'Komisyon = (fiyat × oran + 0,49 TL) × 1,20', ok: pOk ? true : null, v: pOk ? `(${NF.format(p)} × %${NF.format(rate())} + 0,49) × 1,20 = ${fmt(c)}` : 'Geçerli fiyat yok → "—"' },
     { t: `Anlaşmalı kargo seçilebilir: fiyat ≥ ${MIN_CARGO} TL veya muaf satıcı`, ok: en, v: S.exempt ? 'Muaf satıcı: her fiyatta aktif.' : (pOk ? `Fiyat ${fmt(p)}` : 'Fiyat yok') },
-    { t: 'Kargo ücreti = desi × 106 TL (KDV dahil)', ok: S.m.cargo ? (dOk ? true : false) : null, v: S.m.cargo ? (dOk ? `${S.m.desi} × 106 = ${fmt(+S.m.desi * CARGO_UNIT)}` : 'Desi 1 veya daha büyük tam sayı olmalı') : 'Checkbox işaretsiz' },
+    { t: 'Kargo ücreti = desi × firma birim ücreti (Yurtiçi 180 TL · PTT 80 TL · DHL 106 TL)', ok: S.m.cargo ? (cargoFee() !== null) : null,
+      v: !S.m.cargo ? 'Checkbox işaretsiz' : !carrier(S.m.carrier) ? 'Kargo firması seçilmedi' : !dOk ? 'Desi 1 veya daha büyük tam sayı olmalı' : `${S.m.desi} × ${carrier(S.m.carrier)[2]} (${carrier(S.m.carrier)[1]}) = ${fmt(cargoFee())}` },
+    { t: 'Kalan net bakiye = fiyat − komisyon − anlaşmalı kargo − stopaj (%1 örnek)', ok: netOf(p) !== null ? true : null,
+      v: netOf(p) !== null ? `${fmt(p)} − ${fmt(c)} − ${fmt(cargoFee() || 0)} − ${fmt(stopaj(p))} = ${fmt(netOf(p))}` : (!pOk ? 'Geçerli fiyat yok → "—"' : 'Kargo firması ve geçerli desi bekleniyor → "—"') },
   ];
   const res = !buttonVisible() ? 'Buton görünmez.' : !S.modal ? 'Buton görünür; modal kapalı.' :
-    `Komisyon: ${c !== null ? fmt(c) : '—'}${S.m.cargo ? ` · Kargo: ${dOk ? fmt(+S.m.desi * CARGO_UNIT) : '—'}` : ''}`;
+    `Komisyon: ${c !== null ? fmt(c) : '—'}${S.m.cargo ? ` · Kargo: ${cargoFee() !== null ? fmt(cargoFee()) : '—'}` : ''} · Net: ${netOf(p) !== null ? fmt(netOf(p)) : '—'}`;
   document.getElementById('pv-dyn').innerHTML = `<h2>Kurallar</h2>${rulesHTML(rules)}<div class="result">${res}</div><h2>Son işlem</h2><div class="log">${esc(S.log || '—')}</div>`;
 }
 
@@ -467,7 +511,7 @@ function renderApp() {
   document.getElementById('app').innerHTML = shellHTML({ device: d, active: 'products', sub: S.page === 'list' ? 'listproduct' : 'listed', menuOpen: S.menuOpen, subUser: S.role !== 'owner' }) + `
   <div class="screen" id="screen"><div class="content">
     ${crumbHTML(['Ürünler', S.page === 'list' ? 'Ürün Listeleme' : 'Ürün Güncelleme'])}
-    <div class="card"><div class="card-h"><p class="card-t" style="color:#333">Ürün detaylarını girin</p></div>
+    <div class="card tcard"><div class="card-h"><p class="card-t">Ürün detaylarını girin</p></div>
       <div class="card-b" style="padding-top:8px"><div class="grid2">
         <div>
           <div class="fld req"><label for="f-name">Ürün adı</label><input id="f-name" type="text" value="${esc(f.name)}"></div>
@@ -477,7 +521,7 @@ function renderApp() {
           <div class="pricerow">
             <div class="pricecol">
               <div class="fld req"><label for="f-price">Satış fiyatı</label><input id="f-price" type="text" inputmode="decimal" value="${esc(f.price)}"></div>
-              ${buttonVisible() ? '<div class="calcbtn"><button type="button" class="btn btn-xs" id="open-calc">Komisyon hesapla</button></div>' : ''}
+              ${buttonVisible() ? '<div class="calcbtn"><button type="button" class="btn btn-xs btn-primary" id="open-calc">Komisyon hesapla</button></div>' : ''}
             </div>
             <div class="fld req curcol"><label for="f-cur">Para birimi</label><select id="f-cur">${['TL', 'USD', 'EUR'].map(c => `<option ${c === f.currency ? 'selected' : ''}>${c}</option>`).join('')}</select><span class="caret"></span></div>
           </div>
@@ -492,21 +536,43 @@ function modalBody() {
   return `
     <div class="calc">
       <div class="fld"><label for="m-price">Satış fiyatı</label><input id="m-price" type="text" inputmode="decimal" placeholder="Fiyat giriniz" value="${esc(S.m.price)}" autocomplete="off"></div>
-      <div class="res"><span class="small hint">Komisyon tutarı</span><span class="rv" id="rv-com" aria-live="polite">${pOk ? fmt(commission(p)) : '—'}</span></div>
+      <div class="res t-yel"><span class="small">Komisyon tutarı</span><span class="rv" id="rv-com" aria-live="polite">${pOk ? fmt(commission(p)) : '—'}</span></div>
     </div>
     <label class="cb ${en ? '' : 'dis'}" style="margin:6px 0 12px"><input type="checkbox" id="m-cargo" ${S.m.cargo ? 'checked' : ''} ${en ? '' : 'disabled'}><span class="box"></span>Anlaşmalı kargo kullanacağım</label>
     ${S.m.cargo ? `<div class="calc">
+      <div class="fld"><label for="m-carrier">Kargo firması</label><select id="m-carrier"><option value="">Seçiniz</option>${CARRIERS.map(c => `<option value="${c[0]}" ${S.m.carrier === c[0] ? 'selected' : ''}>${c[1]}</option>`).join('')}</select><span class="caret"></span></div>
+      <div></div>
+    </div>
+    <div class="calc">
       <div><div class="fld ${dBad ? 'err' : ''}"><label for="m-desi">Desi</label><input id="m-desi" type="text" inputmode="numeric" placeholder="Desi giriniz" value="${esc(S.m.desi)}" autocomplete="off" ${dBad ? 'aria-invalid="true" aria-describedby="desi-err"' : ''}></div>
       ${dBad ? '<span class="errtxt" id="desi-err">Desi 1 veya daha büyük bir tam sayı olmalıdır.</span>' : ''}</div>
-      <div class="res"><span class="small hint">Anlaşmalı kargo ücreti</span><span class="rv" id="rv-cargo" aria-live="polite">${dOk ? fmt(+S.m.desi * CARGO_UNIT) : '—'}</span></div>
-    </div>` : ''}`;
+      <div class="res t-blue"><span class="small">Anlaşmalı kargo ücreti</span><span class="rv" id="rv-cargo" aria-live="polite">${cargoFee() !== null ? fmt(cargoFee()) : '—'}</span></div>
+    </div>` : ''}
+    <div class="netbox" id="netbox" aria-live="polite">${netHTML()}</div>`;
+}
+function netHTML() {
+  const p = parsePrice(S.m.price), pOk = p !== null && !isNaN(p), n = netOf(p), fee = cargoFee(), c = carrier(S.m.carrier);
+  const neg = v => `<span class="ded">-${fmt(v)}</span>`;
+  return `<div class="net-h"><span>Kalan net bakiye</span><span class="net-v ${n !== null && n < 0 ? 'neg' : ''}">${n !== null ? fmt(n) : '—'}</span></div>
+    ${pOk ? `<div class="net-rows">
+      <div class="subrow"><span>Satış fiyatı</span><span>${fmt(p)}</span></div>
+      <div class="subrow"><span>Komisyon</span>${neg(commission(p))}</div>
+      ${S.m.cargo ? `<div class="subrow"><span>Anlaşmalı kargo${c ? ' · ' + c[1] : ''}</span>${fee !== null ? neg(fee) : '<span>—</span>'}</div>` : ''}
+      <div class="subrow"><span>Stopaj</span>${neg(stopaj(p))}</div>
+    </div>${n === null ? '<p class="net-hint">Kargo firması ve desi girilince hesaplanır.</p>' : ''}` : ''}`;
+}
+function updateResults() {
+  const p = parsePrice(S.m.price), pOk = p !== null && !isNaN(p);
+  const a = document.getElementById('rv-com'); if (a) a.textContent = pOk ? fmt(commission(p)) : '—';
+  const b = document.getElementById('rv-cargo'); if (b) b.textContent = cargoFee() !== null ? fmt(cargoFee()) : '—';
+  const n = document.getElementById('netbox'); if (n) n.innerHTML = netHTML();
 }
 function renderLayer() {
   const L = document.getElementById('layer'); L.querySelectorAll('.backdrop,.modal').forEach(x => x.remove());
   if (!S.modal) return;
   L.insertAdjacentHTML('beforeend', `<div class="backdrop" data-act="mclose"></div>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
-      <div class="modal-h"><h4 id="mt">Komisyon hesapla</h4><button class="modal-x" type="button" aria-label="Kapat" data-act="mclose">${ic('pg-close', 14)}</button></div>
+      <div class="modal-h tinted"><h4 id="mt">Komisyon hesapla</h4><button class="modal-x" type="button" aria-label="Kapat" data-act="mclose">${ic('pg-close', 14)}</button></div>
       <div class="modal-b" id="mbody">${modalBody()}</div>
       <div class="modal-f"><button type="button" class="btn btn-cons" style="margin-right:0" data-act="mclose"><span class="bold">KAPAT</span></button></div>
     </div>`);
@@ -515,14 +581,12 @@ function refreshModal(full) {
   if (!S.modal) return;
   const a = document.activeElement, id = a && a.id, pos = a && a.selectionStart;
   if (full) { document.getElementById('mbody').innerHTML = modalBody(); }
-  else {
-    const p = parsePrice(S.m.price), el = document.getElementById('rv-com'); if (el) el.textContent = (p !== null && !isNaN(p)) ? fmt(commission(p)) : '—';
-  }
+  else updateResults();
   if (id && document.getElementById(id) && document.getElementById(id) !== a) { const n = document.getElementById(id); n.focus(); if (pos != null && n.setSelectionRange) n.setSelectionRange(pos, pos); }
 }
 function onModalChange() {
   const p = parsePrice(S.m.price);
-  if (S.m.cargo && !cargoEnabled(p)) { S.m.cargo = false; S.m.desi = ''; S.log = `Fiyat ${MIN_CARGO} TL'nin altına düştü: işaret kalktı, desi silindi.`; }
+  if (S.m.cargo && !cargoEnabled(p)) { S.m.cargo = false; S.m.desi = ''; S.m.carrier = ''; S.log = `Fiyat ${MIN_CARGO} TL'nin altına düştü: işaret kalktı, kargo firması ve desi silindi.`; }
 }
 function renderAll() { renderApp(); renderPanel(); }
 
@@ -531,7 +595,7 @@ const app = document.getElementById('app');
 app.addEventListener('click', ev => {
   const t = ev.target.closest('[data-act],#open-calc'); if (!t) return;
   if (t.dataset.act === 'menu') { S.menuOpen = !S.menuOpen; renderApp(); return; }
-  if (t.id === 'open-calc') { S.modal = true; S.m = { price: '', cargo: false, desi: '' }; S.log = 'Modal açıldı (alanlar boş).'; renderLayer(); renderPanel(); document.getElementById('m-price').focus(); }
+  if (t.id === 'open-calc') { S.modal = true; S.m = { price: '', cargo: false, carrier: '', desi: '' }; S.log = 'Modal açıldı (alanlar boş).'; renderLayer(); renderPanel(); document.getElementById('m-price').focus(); }
 });
 app.addEventListener('input', ev => {
   const k = { 'f-name': 'name', 'f-desc': 'desc', 'f-price': 'price', 'f-stock': 'stock' }[ev.target.id]; if (k) S.form[k] = ev.target.value;
@@ -551,12 +615,13 @@ layer.addEventListener('input', ev => {
   }
   if (ev.target.id === 'm-desi') {
     const wasBad = S.m.desi !== '' && !desiValid(S.m.desi); S.m.desi = ev.target.value; const isBad = S.m.desi !== '' && !desiValid(S.m.desi);
-    if (wasBad !== isBad) refreshModal(true); else { const el = document.getElementById('rv-cargo'); if (el) el.textContent = desiValid(S.m.desi) ? fmt(+S.m.desi * CARGO_UNIT) : '—'; }
+    if (wasBad !== isBad) refreshModal(true); else updateResults();
     renderPanel();
   }
 });
 layer.addEventListener('change', ev => {
-  if (ev.target.id === 'm-cargo') { S.m.cargo = ev.target.checked; refreshModal(true); if (S.m.cargo) document.getElementById('m-desi').focus(); renderPanel(); }
+  if (ev.target.id === 'm-cargo') { S.m.cargo = ev.target.checked; refreshModal(true); if (S.m.cargo) document.getElementById('m-carrier').focus(); renderPanel(); }
+  if (ev.target.id === 'm-carrier') { S.m.carrier = ev.target.value; S.log = 'Kargo firması: ' + (carrier(S.m.carrier) ? carrier(S.m.carrier)[1] : 'seçilmedi'); updateResults(); renderPanel(); }
 });
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && S.modal) { S.modal = false; renderLayer(); renderPanel(); } });
 
