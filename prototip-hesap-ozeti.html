@@ -308,6 +308,33 @@ button { font: inherit; }
 .dates input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; opacity: 0; cursor: pointer; }
 .dates .addon { cursor: pointer; }
 .f-m .dates .igroup .addon { width: 40px; }
+/* ---- Renkli sürüm: Shopier paletinden ton kartları ---- */
+.tone-blue { --tone: var(--sp-primary); --tone-lt: var(--sp-primary-lighter); --tone-ink: var(--sp-primary); }
+.tone-tq { --tone: var(--sp-complete); --tone-lt: var(--sp-complete-lighter); --tone-ink: var(--sp-complete-darker); }
+.tone-yel { --tone: var(--sp-warning); --tone-lt: var(--sp-warning-lighter); --tone-ink: var(--sp-warning-darker); }
+.tone-red { --tone: var(--sp-danger); --tone-lt: var(--sp-danger-lighter); --tone-ink: var(--sp-danger); }
+.dcard[class*="tone-"] { border-left: 4px solid var(--tone); overflow: hidden; }
+.dcard[class*="tone-"] > .dcard-h { background: linear-gradient(rgba(255,255,255,.45), rgba(255,255,255,.45)), var(--tone-lt); border-bottom-color: transparent; }
+.dcard-h h5 { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.emo { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 3px; background: #fff; font-size: 16px; line-height: 1; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.dcard.tone-tq .metric, .dcard.tone-yel .metric { color: var(--tone-ink); }
+.dcard[class*="tone-"] .metric.neg { color: var(--sp-danger); }
+.tone-ink { color: var(--tone-ink); }
+.pill { display: inline-grid; place-items: center; min-width: 26px; height: 20px; padding: 0 8px; border-radius: 10px; font: 700 11.5px/1 var(--sp-font-control); }
+.pill-yel { background: var(--sp-warning); color: var(--sp-text-strong); }
+.pill-red { background: var(--sp-danger); color: #fff; }
+.pill-blue { background: var(--sp-primary); color: #fff; }
+.rowemo { margin-right: 6px; }
+.allzero { background: var(--sp-complete-lighter); color: var(--sp-complete-darker); font-weight: 600; padding: 10px 12px; border-radius: 3px; }
+.phead .sect { color: var(--sp-info); }
+.phead .bgroup button[aria-pressed="true"] { background: var(--sp-primary); border-color: var(--sp-primary); color: #fff; }
+.f-d .phead .bgroup button[aria-pressed="true"]:hover { background: var(--sp-primary-light); }
+.f-d .chart .bar:hover, .chart .bar:focus-visible, .chart .bar.on { fill: var(--sp-complete-dark); }
+.tname { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.medal { display: inline-block; width: 20px; text-align: center; font-size: 15px; line-height: 1; }
+.thead { padding-left: 28px; }
+.empty { border-left: 4px solid var(--sp-complete); }
+.emo-xl { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--sp-complete-lighter); font-size: 32px; line-height: 1; margin-bottom: 14px; }
 
 </style>
 </head>
@@ -570,6 +597,8 @@ function chg(cur, prev, invert) {
   const up = c > 0, good = invert ? !up : up;
   return `<span class="lbl-s ${good ? 'lbl-up' : 'lbl-down'}" aria-label="Önceki döneme göre ${up ? 'artış' : 'azalış'} %${pct(c)}">${ic(up ? 'fa-caret-up' : 'fa-caret-down', 11)}%${pct(c)}</span>`;
 }
+const EMO = e => `<span class="emo" aria-hidden="true">${e}</span>`;
+const card = (tone, emo, title, extra) => `<section class="dcard tone-${tone}"><div class="dcard-h"><h5>${EMO(emo)}${title}</h5>${extra || ''}</div>`;
 const money = (v, neg) => `<span class="${neg ? 'text-danger' : ''}">${neg ? '-' : ''}${fmt(Math.abs(v))}</span>`;
 function chartSVG(r, W) {
   const { mode, out } = buckets(r.a, r.b, r.days); const H = 190, L = 64, B = 26, T = 10, Rr = 8;
@@ -578,8 +607,9 @@ function chartSVG(r, W) {
   const ticks = []; for (let t = 0; t <= top + 1e-9; t += step) ticks.push(t);
   const every = Math.max(1, Math.ceil(out.length / (W < 500 ? 4 : 8)));
   return `<svg class="chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Seçili dönemdeki satış hacmi, ${mode === 'hour' ? 'saatlik' : mode === 'week' ? 'haftalık' : 'günlük'}">
+    <defs><linearGradient id="barfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#007BE8"/><stop offset="1" stop-color="#3395ED" stop-opacity=".55"/></linearGradient></defs>
     ${ticks.map(t => `<line x1="${L}" x2="${W - Rr}" y1="${y(t)}" y2="${y(t)}" stroke="#EAECEE"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end" class="ax">${NF0.format(t)} TL</text>`).join('')}
-    ${out.map((x, i) => `<rect class="bar" data-i="${i}" x="${(L + i * bw + bw * .15).toFixed(1)}" y="${y(x.v).toFixed(1)}" width="${Math.max(1, bw * .7).toFixed(1)}" height="${(T + ih - y(x.v)).toFixed(1)}" fill="#007BE8" tabindex="0" aria-label="${x.lbl}: ${fmt(x.v)}"/>`).join('')}
+    ${out.map((x, i) => `<rect class="bar" data-i="${i}" x="${(L + i * bw + bw * .15).toFixed(1)}" y="${y(x.v).toFixed(1)}" width="${Math.max(1, bw * .7).toFixed(1)}" height="${(T + ih - y(x.v)).toFixed(1)}" rx="2" fill="url(#barfill)" tabindex="0" aria-label="${x.lbl}: ${fmt(x.v)}"/>`).join('')}
     ${out.map((x, i) => i % every === 0 ? `<text x="${(L + i * bw + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" class="ax">${mode === 'hour' ? x.lbl : x.lbl.slice(0, 5)}</text>` : '').join('')}
   </svg>`;
 }
@@ -588,27 +618,27 @@ function renderApp() {
   const d = S.device;
   let body;
   if (S.data === 'new') {
-    body = `<div class="empty"><h3>Satışlarınız başladıkça burası bilgiyle dolacak!</h3>
+    body = `<div class="empty"><span class="emo-xl" aria-hidden="true">🛍️</span><h3>Satışlarınız başladıkça burası bilgiyle dolacak!</h3>
       <p>Burasının şimdilik çok boş gözüktüğünün farkındayız, satışlarınız başladıkça bu bölüm dolmaya başlayacak.<br>Şimdi ürünlerinizi listeleyerek dükkanınızı satışa hazır hale getirebilirsiniz.</p>
       <button type="button" class="btn btn-complete btn-cons" id="empty-cta"><span class="bold">HEMEN ÜRÜN LİSTELE</span></button></div>`;
   } else {
     const r = range(), m = metrics(r.a, r.b), p = metrics(r.pa, r.pb), I = instant();
     const next = (() => { let t = sod(S.now); do { t = addDays(t, 1); } while (t.getDay() !== 3); return t; })();
-    const acts = [['waiting', 'Kargolanmayı bekleyen siparişler', I.waiting, 'Siparişler']];
-    if (S.phase >= 3) acts.push(['late', 'Geciken siparişler', I.late.length, 'Siparişler']);
-    acts.push(['claims', 'Açık talepler', I.claims, 'Talepler']);
+    const acts = [['waiting', 'Kargolanmayı bekleyen siparişler', I.waiting, 'Siparişler', 'yel', '']];
+    if (S.phase >= 3) acts.push(['late', 'Geciken siparişler', I.late.length, 'Siparişler', 'red', '⏰']);
+    acts.push(['claims', 'Açık talepler', I.claims, 'Talepler', 'blue', '']);
     const allZero = acts.every(a => a[2] === 0);
     const top = Object.entries(m.top).sort((x, y) => y[1] - x[1]).slice(0, 5);
     body = `
       <div class="g3">
-        <section class="dcard"><div class="dcard-h"><h5>Hesap bakiyesi</h5></div><div class="dcard-b">
+        ${card('blue', '💰', 'Hesap bakiyesi')}<div class="dcard-b">
           <p class="mlabel">Bekleyen net bakiye</p><p class="metric">${fmt(I.pending)}</p>
-          <div class="subrow" style="margin-top:14px"><span class="hint">Gelecek tahsilat tarihi</span><span>${fmtDate(next)}</span></div></div></section>
-        <section class="dcard"><div class="dcard-h"><h5>Aksiyon bekleyenler</h5></div><div class="dcard-b">
+          <div class="subrow" style="margin-top:14px"><span class="hint">Gelecek tahsilat tarihi</span><span class="bold tone-ink">${fmtDate(next)}</span></div></div></section>
+        ${card('yel', '📦', 'Aksiyon bekleyenler')}<div class="dcard-b">
           <p class="mlabel">Açık sipariş</p><p class="metric">${I.open} adet</p>
-          ${allZero ? '<p class="allzero">Bekleyen işiniz yok.</p>' : `<ul class="acts">${acts.map(a => `<li><button type="button" class="act" data-act-row="${a[0]}" data-to="${a[3]}" ${a[2] === 0 ? 'aria-disabled="true" disabled' : ''}><span>${a[1]}</span><span class="cnt">${a[2]}${ic('fa-chevron-right', 9)}</span></button></li>`).join('')}</ul>`}
+          ${allZero ? '<p class="allzero">Bekleyen işiniz yok. <span aria-hidden="true">🎉</span></p>' : `<ul class="acts">${acts.map(a => `<li><button type="button" class="act" data-act-row="${a[0]}" data-to="${a[3]}" ${a[2] === 0 ? 'aria-disabled="true" disabled' : ''}><span>${a[5] ? `<span class="rowemo" aria-hidden="true">${a[5]}</span>` : ''}${a[1]}</span><span class="cnt"><span class="pill pill-${a[4]}">${a[2]}</span>${ic('fa-chevron-right', 9)}</span></button></li>`).join('')}</ul>`}
         </div></section>
-        <section class="dcard"><div class="dcard-h"><h5>Bugüne kadarki toplam satış</h5></div><div class="dcard-b">
+        ${card('tq', '🏆', 'Bugüne kadarki toplam satış')}<div class="dcard-b">
           <p class="metric">${fmt(I.total)}</p></div></section>
       </div>
       <div class="phead"><p class="micro sect">Dönemsel veriler</p>
@@ -619,10 +649,10 @@ function renderApp() {
           <div class="igroup"><div class="fld"><label for="c-start">Başlangıç</label><input id="c-start" type="date" value="${S.cStart}" max="${S.cEnd}" min="${ymd(addDays(new Date(S.cEnd + 'T00:00:00'), -365))}"></div><span class="addon" aria-hidden="true">${ic('fa-calendar', 14)}</span></div>
           <div class="igroup"><div class="fld"><label for="c-end">Bitiş</label><input id="c-end" type="date" value="${S.cEnd}" min="${S.cStart}" max="${ymd(S.now)}"></div><span class="addon" aria-hidden="true">${ic('fa-calendar', 14)}</span></div>
         </div>` : ''}</div></div>
-      <section class="dcard"><div class="dcard-h"><h5>Satışlar</h5>${chg(m.sales, p.sales)}</div><div class="dcard-b">
+      ${card('blue', '📈', 'Satışlar', chg(m.sales, p.sales))}<div class="dcard-b">
         <p class="metric">${fmt(m.sales)}</p><div id="chartbox" class="chartbox"></div></div></section>
       <div class="${S.phase >= 2 ? 'g3' : 'g2'}">
-        ${S.phase >= 2 ? `<section class="dcard"><div class="dcard-h"><h5>Net kazanç</h5>${chg(m.net, p.net)}</div><div class="dcard-b">
+        ${S.phase >= 2 ? `${card('tq', '💸', 'Net kazanç', chg(m.net, p.net))}<div class="dcard-b">
           <p class="metric ${m.net < 0 ? 'neg' : ''}">${fmt(m.net)}</p>
           <div class="brk">
             <div class="subrow"><span>Satış</span>${money(m.sales)}</div>
@@ -631,13 +661,13 @@ function renderApp() {
             <div class="subrow"><span>Anlaşmalı kargo</span>${money(m.cargo, m.cargo > 0)}</div>
             <div class="subrow"><span>Stopaj</span>${money(m.stopaj, m.stopaj > 0)}</div>
           </div><p class="small hint" style="margin:8px 0 0">Ürün maliyeti hariçtir.</p></div></section>` : ''}
-        <section class="dcard"><div class="dcard-h"><h5>Sipariş adedi</h5>${chg(m.count, p.count)}</div><div class="dcard-b">
+        ${card('blue', '🛒', 'Sipariş adedi', chg(m.count, p.count))}<div class="dcard-b">
           <p class="mlabel">Toplam sipariş</p><p class="metric">${m.count} adet</p></div></section>
-        <section class="dcard"><div class="dcard-h"><h5>İadeler</h5>${chg(m.refunds, p.refunds, true)}</div><div class="dcard-b">
+        ${card('red', '↩️', 'İadeler', chg(m.refunds, p.refunds, true))}<div class="dcard-b">
           <p class="mlabel">İade tutarı</p><p class="metric ${m.refunds > 0 ? 'neg' : ''}">${fmt(m.refunds)}</p></div></section>
       </div>
-      <section class="dcard"><div class="dcard-h"><h5>En çok satan ürünler</h5></div><div class="dcard-b">
-        ${top.length ? `<div class="subrow bold" style="margin-bottom:6px"><span>Ürün adı</span><span>Sipariş adedi</span></div>` + top.map(([pi, q]) => `<div class="subrow toprow"><span class="text-primary">${PRODUCTS[pi][0]}</span><span>${q} adet</span></div>`).join('') : '<p class="small hint">Seçili dönemde satış yok.</p>'}
+      ${card('yel', '⭐', 'En çok satan ürünler')}<div class="dcard-b">
+        ${top.length ? `<div class="subrow bold" style="margin-bottom:6px"><span class="thead">Ürün adı</span><span>Sipariş adedi</span></div>` + top.map(([pi, q], i) => `<div class="subrow toprow"><span class="tname"><span class="medal" aria-hidden="true">${['🥇', '🥈', '🥉'][i] || ''}</span><span class="text-primary">${PRODUCTS[pi][0]}</span></span><span class="bold">${q} adet</span></div>`).join('') : '<p class="small hint">Seçili dönemde satış yok.</p>'}
       </div></section>`;
     CHART = r;
   }
